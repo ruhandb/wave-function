@@ -1,4 +1,5 @@
-var SIZE = 23;
+var SIZE_H = 45;
+var SIZE_V = 80;
 var SZ_TILE = 32;
 var ALL_TILES = [];
 var TILES = {};
@@ -48,29 +49,27 @@ var TILES = {};
     }
 } */
 var JOIN = {
-    highgr: {
+    grass: {
         rate: 100,
-        join: {
-            grass: {
+        full: {
+            water: {
                 rate: 100,
-                full: {
-                    water: {
-                        rate: 100,
-                        join: {
-                            deepwater: {
-                                rate: 100
-                            }
-                        }
-                    },
-                    highland: {
-                        rate: 100,
-                    }
-                },
                 join: {
-                    castle_: { rate: 1, no_repeat: true, },
-                    road_point: { rate: 2, no_repeat: true, }
+                    deepwater: { rate: 50 }
+                }
+            },
+            highland: {
+                rate: 50,
+                join: {
+                    highlandbush: { rate: 25 }
                 }
             }
+        },
+        join: {
+            castle_: { rate: 1, no_repeat: true, },
+            tree: { rate: 100 },
+            road_point: { rate: 1, no_repeat: true, },
+            highgr: { rate: 100, },
         }
     }
 };
@@ -107,6 +106,8 @@ function connectTiles(parent, tile, obj, isJoin) {
                 }
             }
         }
+    } else {
+        TILES[tile].rate = obj.rate;
     }
     if (parent) {
         // CONNECT TO PARENT
@@ -231,6 +232,7 @@ function generateFullConnection(tileA, tileB) {
 
     tilesDef.forEach(def => {
         if (!TILES[def.name]) {
+            console.log(def.name)
             TILES[def.name] = { rate: 10, neighbours: {} };
         }
 
@@ -420,10 +422,11 @@ function cloneConnections(fromTile, toTile, directions, exceptions) {
 var gridPos = [];
 var grid = [];
 var startDate = new Date();
+var errorCount = 0;
 
 window.onload = function () {
     /* connectTiles(undefined, "sand", JOIN.sand, true); */
-    connectTiles(undefined, "highgr", JOIN.highgr, true);
+    connectTiles(undefined, "grass", JOIN.grass, true);
 
     customConnect("bridge_h", "bridge_h", ["r"], true, 1);
     cloneConnections("water", "bridge_h", ["t", "b", "lt", "rt", "lb", "rb"], ["bridge_h", "deepwater"]);
@@ -437,7 +440,7 @@ window.onload = function () {
     cloneConnections("grass", "road_point", ["r", "l", "t", "b", "lt", "rt", "lb", "rb"], ["castle_"]);
     cloneConnections("grass", "castle_", ["r", "l", "t", "b", "lt", "rt", "lb", "rb"], ["road_point"]);
 
-    customConnect("road_h", "bridge_grass_rl", ["r"], true, 10);
+    customConnect("road_h", "bridge_grass_rl", ["r"], true, 1);
     customConnect("road_h", "bridge_grass_lr", ["l"], true);
 
     customConnect("road_h", "road_h", ["b", "r", "l", "t", "lt", "rt", "lb", "rb"], true);
@@ -495,27 +498,39 @@ window.onload = function () {
     customConnect("road_br", "road_lb", ["r", "lt", "rt", "lb", "rb"], true);
 
 
+    refresh();
+};
+
+function refresh(){
+    container.innerHTML = '';
+    gridPos = [];
+    grid = [];
+    startDate = new Date();
+    errorCount = 0;
+    gid("errorCount").innerText = errorCount;
+
     console.log(TILES);
     ALL_TILES = Object.keys(TILES);
     console.log(ALL_TILES);
 
-    for (let i = 0; i < SIZE; i++) {
+    for (let i = 0; i < SIZE_H; i++) {
         grid.push([]);
-        for (let j = 0; j < SIZE; j++) {
+        for (let j = 0; j < SIZE_V; j++) {
             grid[i].push([].concat(ALL_TILES));
             gridPos.push({ x: j, y: i });
         }
     }
     generateTile();
-};
+}
 
 function generateTile() {
     window.setTimeout(() => {
         if (gridPos.length > 0) {
-            //let tilePosdx = gridPos.length % (SIZE * 3) == 0 ? getRandomTile() : getNearRandomTile();
+            //let tilePosdx = gridPos.length % (SIZE_H * 3) == 0 ? getRandomTile() : getNearRandomTile();
+            //let tilePosdx = getNearRandomTile();
             //let tilePosdx = getNearRandomTile();
 
-            let tilePosdx = gridPos.length % (SIZE * 3) == 0 ? getRandomTile() : geWaveFunctionTile();
+            let tilePosdx = gridPos.length % (SIZE_H * 3) == 0 ? getRandomTile() : geWaveFunctionTile();
             //let tilePosdx = geWaveFunctionTile();
 
             //let tilePosdx = getRandomTile();
@@ -524,8 +539,10 @@ function generateTile() {
             propagateChanges(tilePosdx.y, tilePosdx.x);
             printTile(tilePosdx.y, tilePosdx.x);
             generateTile();
+            gid("time").innerText = new Date(new Date() - startDate).toISOString().slice(14, -1)
         } else {
             console.log(new Date(new Date() - startDate).toISOString().slice(11, -1));  // "03:25:45.000"
+            window.setTimeout(()=>{ refresh(); }, 8000);
         }
     }, 0);
 }
@@ -559,6 +576,18 @@ function printTile(y, x) {
 }
 
 
+function printError(y, x) {
+    var div = document.createElement("div");
+    div.style.width = SZ_TILE/4 + "px";
+    div.style.height = SZ_TILE/4 + "px";
+    div.style.backgroundColor = "red";// backgroundImage = "url(tiles/" + grid[y][x][0] + ".png)";
+    div.style.position = "absolute";
+    div.style.top = ((y * SZ_TILE) + (SZ_TILE/8*3)) + "px";
+    div.style.left = ((x * SZ_TILE) + (SZ_TILE/8*3)) + "px";
+    container.appendChild(div);
+}
+
+
 
 function propagateChanges(y, x) {
 
@@ -587,6 +616,9 @@ function propagateChanges(y, x) {
             }
             propagateChanges(t.y, t.x);
         } else if (newList.length == 0) {
+            printError(t.y, t.x);
+            errorCount++;
+            gid("errorCount").innerText = errorCount;
             console.log(t.y, t.x, "wave fail");
         }
     }
@@ -596,25 +628,25 @@ function addNeigToCheck(checkList, y, x) {
     if (y > 0) {
         checkList.push({ y: y - 1, x: x, pos: "t" });
     }
-    if (y < SIZE - 1) {
+    if (y < SIZE_H - 1) {
         checkList.push({ y: y + 1, x: x, pos: "b" });
     }
     if (x > 0) {
         checkList.push({ y: y, x: x - 1, pos: "l" });
     }
-    if (x < SIZE - 1) {
+    if (x < SIZE_V - 1) {
         checkList.push({ y: y, x: x + 1, pos: "r" });
     }
     if (y > 0 && x > 0) {
         checkList.push({ y: y - 1, x: x - 1, pos: "lt" });
     }
-    if (y > 0 && x < SIZE - 1) {
+    if (y > 0 && x < SIZE_V - 1) {
         checkList.push({ y: y - 1, x: x + 1, pos: "rt" });
     }
-    if (y < SIZE - 1 && x > 0) {
+    if (y < SIZE_H - 1 && x > 0) {
         checkList.push({ y: y + 1, x: x - 1, pos: "lb" });
     }
-    if (y < SIZE - 1 && x < SIZE - 1) {
+    if (y < SIZE_H - 1 && x < SIZE_V - 1) {
         checkList.push({ y: y + 1, x: x + 1, pos: "rb" });
     }
 }
@@ -670,7 +702,7 @@ function hasTileNear(y, x) {
 }
 
 function checkTile(y, x) {
-    if (y >= 0 && x >= 0 && y < SIZE && x < SIZE) {
+    if (y >= 0 && x >= 0 && y < SIZE_H && x < SIZE_V) {
         return grid[y][x].length == 1;
     }
     return false;
